@@ -213,37 +213,46 @@ fn main() {
     }
 
     // check if the given path is a directoty or a file
-    let md = metadata(&args.binary).unwrap();
-    if md.is_dir() {
-        let paths = std::fs::read_dir(&args.binary).unwrap();
-        let mut i = entry_count;
-        for path in paths {
-            let binary = path.unwrap().path().display().to_string();
-            println!("Name: {}", &binary);
-            results.push(
-                perform_benchmark(
-                    &binary,
-                    &args.runtime_version,
-                    args.number_of_runs,
-                    i,
-                    args.threads,
-                )
-                .unwrap(),
-            );
-            i += 1;
+    let md = metadata(&args.binary);
+    match md {
+        Err(_) => {
+            println!("The given path to the binary doesn't exists !");
+            return
         }
-    } else {
-        results.push(
-            perform_benchmark(
-                &args.binary,
-                &args.runtime_version,
-                args.number_of_runs,
-                entry_count,
-                args.threads,
-            )
-            .unwrap(),
-        );
-    }
+        Ok(metadata) => {
+            if metadata.is_dir() {
+                let paths = std::fs::read_dir(&args.binary).unwrap();
+                let mut i = entry_count;
+                for path in paths {
+                    let binary = path.unwrap().path().display().to_string();
+                    println!("Name: {}", &binary);
+                    results.push(
+                        perform_benchmark(
+                            &binary,
+                            &args.runtime_version,
+                            args.number_of_runs,
+                            i,
+                            args.threads,
+                        )
+                        .unwrap(),
+                    );
+                    i += 1;
+                }
+            } else {
+                results.push(
+                    perform_benchmark(
+                        &args.binary,
+                        &args.runtime_version,
+                        args.number_of_runs,
+                        entry_count,
+                        args.threads,
+                    )
+                    .unwrap(),
+                );
+            }
+        }
+    } 
+    
 
     let file: File;
 
