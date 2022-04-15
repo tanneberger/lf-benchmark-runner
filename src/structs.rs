@@ -2,6 +2,7 @@ extern crate derive_builder;
 
 use clap::Parser;
 use derive_builder::Builder;
+use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
 #[clap(name = "Lingua-Franca benchmark runner")]
@@ -30,7 +31,7 @@ pub struct Args {
     #[clap(long, default_value_t = 1)]
     pub threads: u8,
 
-    #[clap(long, default_value_t = true)]
+    #[clap(long)]
     pub json: bool
 }
 
@@ -44,6 +45,15 @@ pub fn format<T: std::fmt::Display>(option: &Option<T>) -> String {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JsonResult {
+    name: String,
+    units: String,
+    value: f32,
+    extra: String
+}
+
 
 #[derive(Default, Builder)]
 pub struct Result {
@@ -114,6 +124,15 @@ impl Result {
             format(&self.simulations),
             format(&self.channels),
         ];
+    }
+
+    pub fn to_json(self: &Result) -> JsonResult {
+        JsonResult {
+            name: self.benchmark_name.clone(),
+            units: String::from("ms"),
+            value: self.mean_time_ms,
+            extra: String::from("")
+        }
     }
 }
 

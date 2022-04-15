@@ -8,9 +8,9 @@ mod structs;
 use clap::Parser;
 use regex::Regex;
 
-use std::fs::metadata;
-use std::fs::{File, OpenOptions};
+use std::fs::{File, OpenOptions, read_to_string, metadata};
 use std::process::Command;
+use serde_json::{Value, from_str, to_writer};
 
 use structs::{Args, ResultBuilder};
 
@@ -156,8 +156,9 @@ fn main() {
             .open(&args.file)
             .unwrap();
     }
-
-    if entry_count == 0 {
+    
+    if !args.json {
+        if entry_count == 0 {
         {
             let mut wtr = csv::Writer::from_writer(&file);
             wtr.write_record(&[
@@ -184,13 +185,26 @@ fn main() {
             ])
             .unwrap();
         }
-    }
+        }
 
-    let mut wtr = csv::Writer::from_writer(&file);
-    for record in results {
+        let mut wtr = csv::Writer::from_writer(&file);
+        for record in results {
         wtr.write_record(&record).unwrap();
-    }
-    wtr.flush().unwrap();
+        }
+        wtr.flush().unwrap();
+    } else {
+        let data = read_to_string(&args.file).expect("Unable to read file");
+        let res: Value = from_str(&data).expect("Unable to parse");
 
+        // res should be a list of json structs
+    
+        for record in results {
+            res.push(record.to_json());
+        }
+
+        
+        to_writer(&file, &res)?
+    }
+    
     println!("Finsihed benchmarks and saved data into {}", &args.file);
 }
