@@ -44,26 +44,26 @@ fn perform_benchmark(
             Ok(result) => {
                 if result.status.success() {
                     let output = String::from_utf8_lossy(&result.stdout);
-                    let re_best_time = Regex::new(r"Best Time:  \s+(\d+).(\d+)").unwrap();
-                    let re_worst_time = Regex::new(r"Worst Time:  \s+(\d+).(\d+)").unwrap();
-                    let re_median = Regex::new(r"Median:  \s+(\d+).(\d+)").unwrap();
+                    let re_best_time = Regex::new(r"Best Time: (\s+)(\d+).(\d+)").unwrap();
+                    let re_worst_time = Regex::new(r"Worst Time: (\s+)(\d+).(\d+)").unwrap();
+                    let re_median = Regex::new(r"Median: (\s+)(\d+).(\d+)").unwrap();
                     let re_iterations = Regex::new(r"numIterations = (\d+)").unwrap();
                     let re_benchmarks = Regex::new(r"Benchmark: (.+)").unwrap();
 
                     for cap in re_best_time.captures_iter(&output) {
-                        //println!("|{}|{}|{}|", &cap[0], &cap[1], &cap[2]);
-                        let after_comma = cap[2].parse::<i32>().unwrap() as f32;
-                        best_time += (cap[1].parse::<i32>().unwrap() as f32)+ (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
+                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        let after_comma = cap[3].parse::<i32>().unwrap() as f32;
+                        best_time += (cap[2].parse::<i32>().unwrap() as f32)+ (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
                     for cap in re_worst_time.captures_iter(&output) {
-                        //println!("|{}|{}|{}|", &cap[0], &cap[1], &cap[2]);
-                        let after_comma = cap[2].parse::<i32>().unwrap() as f32;
-                        worst_time += (cap[1].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
+                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        let after_comma = cap[3].parse::<i32>().unwrap() as f32;
+                        worst_time += (cap[2].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
                     for cap in re_median.captures_iter(&output) {
-                        //println!("|{}|{}|{}|", &cap[0], &cap[1], &cap[2]);
-                        let after_comma = cap[2].parse::<i32>().unwrap() as f32;
-                        median += (cap[1].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
+                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        let after_comma = cap[3].parse::<i32>().unwrap() as f32;
+                        median += (cap[2].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
                     for cap in re_iterations.captures_iter(&output) {
                         iterations += (&cap[1]).parse::<u32>().unwrap();
