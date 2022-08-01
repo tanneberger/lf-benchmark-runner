@@ -8,10 +8,11 @@ mod structs;
 use clap::Parser;
 use regex::Regex;
 
-use std::fs::{File, OpenOptions, read_to_string, metadata};
+use std::fs::{File, OpenOptions, metadata};
 use std::process::Command;
-use serde_json::{Value, from_str, to_writer};
+use serde_json::{Value};
 use serde::{Serialize, Deserialize};
+use charts::{Chart, VerticalBarView, ScaleBand, ScaleLinear, BarLabelPosition};
 
 use structs::{Args, ResultBuilder};
 
@@ -22,6 +23,7 @@ struct ResultCollector {
 
 fn perform_benchmark(
     binary: &String,
+    target: &String,
     runtime_version: &String,
     number_of_runs: u32,
     entry_count: u32,
@@ -51,17 +53,17 @@ fn perform_benchmark(
                     let re_benchmarks = Regex::new(r"Benchmark: (.+)").unwrap();
 
                     for cap in re_best_time.captures_iter(&output) {
-                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        //println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
                         let after_comma = cap[3].parse::<i32>().unwrap() as f32;
                         best_time += (cap[2].parse::<i32>().unwrap() as f32)+ (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
                     for cap in re_worst_time.captures_iter(&output) {
-                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        //println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
                         let after_comma = cap[3].parse::<i32>().unwrap() as f32;
                         worst_time += (cap[2].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
                     for cap in re_median.captures_iter(&output) {
-                        println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
+                        //println!("|{}|{}|{}|", &cap[0], &cap[2], &cap[3]);
                         let after_comma = cap[3].parse::<i32>().unwrap() as f32;
                         median += (cap[2].parse::<i32>().unwrap() as f32) + (1f32/10f32.powf(after_comma.log10().ceil())) * after_comma
                     }
@@ -83,7 +85,7 @@ fn perform_benchmark(
         ResultBuilder::default()
             .count(entry_count)
             .benchmark_name(benchmark)
-            .target(String::from("LF-Cpp"))
+            .target(target.to_string())
             .runtime_version(runtime_version.clone())
             .total_iterations(iterations)
             .threads(threads)
@@ -97,26 +99,56 @@ fn perform_benchmark(
     )
 }
 
-fn main() {
-    let args = Args::parse();
-    let mut results: Vec<[String; 20]> = Vec::new();
-    let entry_count: u32;
+fn draw_image(file: &String, data: &Vec<[String; 20]>) {
+    // Define chart related sizes.
+    let width = 800;
+    let height = 600;
+    let (top, right, bottom, left) = (90, 40, 50, 60);
 
-    // reads how many entries are already inside the csv file
-    if std::path::Path::new(&args.file).exists() {
-        let raw_content = std::fs::read(&args.file).unwrap();
-        let buffer = String::from_utf8_lossy(&raw_content);
-        entry_count = (buffer.split("\n").count() - 1) as u32;
-    } else {
-        entry_count = 0;
+    let mut extracted_data = Vec::new();
+    let mut benchmarks = Vec::new();
+
+    for result in data.into_iter() {
+        benchmarks.push(result[1].clone());
+        extracted_data.push((result[1].clone(), result[9].parse::<f32>().unwrap(), result[2].clone()))
     }
 
+    let x = ScaleBand::new()
+        .set_domain(benchmarks)
+        .set_range(vec![0, width - left - right]);
+
+    let y = ScaleLinear::new()
+        .set_domain(vec![0.0, 2000.0])
+        .set_range(vec![height - top - bottom, 0]);
+
+    let view = VerticalBarView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        // .set_label_visibility(false)  // <-- uncomment this line to hide bar value labels
+        .set_label_position(BarLabelPosition::Center)
+        .load_data(&extracted_data).unwrap();
+
+    Chart::new()
+        .set_width(width)
+        .set_height(height)
+        .set_margins(top, right, bottom, left)
+        .add_title(String::from("Stacked Bar Chart"))
+        .add_view(&view)
+        .add_axis_bottom(&x)
+        .add_axis_left(&y)
+        .add_left_axis_label("Units of Measurement")
+        .add_bottom_axis_label("Categories")
+        .save(file).unwrap();
+}
+
+fn collect_data(args: &Args, entry_count: u32) -> Vec<[String; 20]>{
+    let mut results = Vec::new();
     // check if the given path is a directoty or a file
     let md = metadata(&args.binary);
     match md {
         Err(_) => {
             println!("The given path to the binary doesn't exists !");
-            return
+            return results;
         }
         Ok(metadata) => {
             if metadata.is_dir() {
@@ -128,6 +160,7 @@ fn main() {
                     results.push(
                         perform_benchmark(
                             &binary,
+                            &args.target,
                             &args.runtime_version,
                             args.number_of_runs,
                             i,
@@ -141,6 +174,7 @@ fn main() {
                 results.push(
                     perform_benchmark(
                         &args.binary,
+                        &args.target,
                         &args.runtime_version,
                         args.number_of_runs,
                         entry_count,
@@ -150,68 +184,107 @@ fn main() {
                 );
             }
         }
-    } 
-    
-
-    let file: File;
-
-    if !std::path::Path::new(&args.file).exists() {
-        file = File::create(&args.file).unwrap();
-    } else {
-        file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(&args.file)
-            .unwrap();
     }
+    return results;
+}
+
+
+fn main() {
+    let args = Args::parse();
+    let entry_count: u32;
     
-    if !args.json {
-        if entry_count == 0 {
-        {
+    match args.file {
+        Some(ref file_name) => {
+            // reads how many entries are already inside the csv file
+            if std::path::Path::new(&file_name).exists() {
+                let raw_content = std::fs::read(&file_name).unwrap();
+                let buffer = String::from_utf8_lossy(&raw_content);
+                entry_count = (buffer.split("\n").count() - 1) as u32;
+            } else {
+                entry_count = 0;
+            }
+        }
+        None => {
+            entry_count = 0;
+        }
+    }
+
+    let results = collect_data(&args, entry_count);
+
+    match args.file {
+        Some(ref file_name) => {
+            let file: File;
+            if !std::path::Path::new(&file_name).exists() {
+                file = File::create(&file_name).unwrap();
+            } else {
+                file = OpenOptions::new()
+                    .write(true)
+                    .append(true)
+                    .open(&file_name)
+                    .unwrap();
+            }
+            if entry_count == 0 {
+                let mut wtr = csv::Writer::from_writer(&file);
+                wtr.write_record(&[
+                    "i",
+                    "benchmark",
+                    "target",
+                    "total_iterations",
+                    "threads",
+                    "pings",
+                    "runtime_version",
+                    "min_time_ms",
+                    "max_time_ms",
+                    "median_time_ms",
+                    "mean_time_ms",
+                    "pieces",
+                    "workers",
+                    "left",
+                    "right",
+                    "messages",
+                    "actors",
+                    "columns",
+                    "simulations",
+                    "channels",
+                ])
+                .unwrap();
+            }
+
             let mut wtr = csv::Writer::from_writer(&file);
-            wtr.write_record(&[
-                "",
-                "benchmark",
-                "target",
-                "total_iterations",
-                "threads",
-                "pings",
-                "runtime_version",
-                "min_time_ms",
-                "max_time_ms",
-                "median_time_ms",
-                "mean_time_ms",
-                "pieces",
-                "workers",
-                "left",
-                "right",
-                "messages",
-                "actors",
-                "columns",
-                "simulations",
-                "channels",
-            ])
-            .unwrap();
+            for record in results.clone().into_iter() {
+                wtr.write_record(record).unwrap();
+            }
+            wtr.flush().unwrap();
+            println!("Finsihed benchmarks and saved data into {}", &file_name);
         }
-        }
-
-        let mut wtr = csv::Writer::from_writer(&file);
-        for record in results {
-        wtr.write_record(&record).unwrap();
-        }
-        wtr.flush().unwrap();
-    } else {
-        let data = read_to_string(&args.file).expect("Unable to read file");
-        let mut res: Vec<[String; 20]> = from_str(&data).expect("Unable to parse");
-
-        // res should be a list of json structs
-        for record in results {
-            res.push(record);
-        }
-
-        
-        to_writer(&file, &res).unwrap();
+        None => {}
     }
-    
-    println!("Finsihed benchmarks and saved data into {}", &args.file);
+
+    match args.image {
+        Some(image_file) => {
+            let image_data = match args.file {
+                Some(ref file_name) => {
+                    let mut parsed_data = Vec::new();
+                    let file = OpenOptions::new()
+                        .read(true)
+                        .open(&file_name)
+                        .unwrap();
+                    
+                    let mut rdr = csv::Reader::from_reader(file);
+                    for result in rdr.deserialize() {
+                        parsed_data.push(result.unwrap());
+                    }
+
+                    parsed_data
+                }
+                None => {
+                    results
+                }
+            };
+
+            draw_image(&image_file, &image_data);
+        }
+        None => {}
+    }
+
 }

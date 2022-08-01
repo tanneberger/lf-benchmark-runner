@@ -17,7 +17,7 @@ pub struct Args {
     pub target: String,
 
     #[clap(short, long)]
-    pub file: String,
+    pub file: Option<String>,
 
     #[clap(short, long, default_value_t = String::from(""))]
     pub name: String,
@@ -32,7 +32,10 @@ pub struct Args {
     pub threads: u8,
 
     #[clap(long)]
-    pub json: bool
+    pub json: bool,
+
+    #[clap(short, long)]
+    pub image: Option<String>
 }
 
 pub fn format<T: std::fmt::Display>(option: &Option<T>) -> String {
@@ -124,15 +127,6 @@ impl Result {
             format(&self.simulations),
             format(&self.channels),
         ];
-    }
-
-    pub fn to_json(self: &Result) -> JsonResult {
-        JsonResult {
-            name: self.benchmark_name.clone(),
-            units: String::from("ms"),
-            value: self.mean_time_ms,
-            extra: String::from("")
-        }
     }
 }
 
