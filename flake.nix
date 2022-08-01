@@ -19,6 +19,7 @@
       in rec {
         checks = packages;
         packages.lf-benchmark-runner = derivation;
+        packages.default = derivation;
       }
    );
 }

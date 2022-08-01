@@ -11,9 +11,14 @@ use regex::Regex;
 use std::fs::{File, OpenOptions, read_to_string, metadata};
 use std::process::Command;
 use serde_json::{Value, from_str, to_writer};
+use serde::{Serialize, Deserialize};
 
 use structs::{Args, ResultBuilder};
 
+#[derive(Serialize, Deserialize)]
+struct ResultCollector {
+    values: Vec<Value>
+}
 
 fn perform_benchmark(
     binary: &String,
@@ -194,16 +199,15 @@ fn main() {
         wtr.flush().unwrap();
     } else {
         let data = read_to_string(&args.file).expect("Unable to read file");
-        let res: Value = from_str(&data).expect("Unable to parse");
+        let mut res: Vec<[String; 20]> = from_str(&data).expect("Unable to parse");
 
         // res should be a list of json structs
-    
         for record in results {
-            res.push(record.to_json());
+            res.push(record);
         }
 
         
-        to_writer(&file, &res)?
+        to_writer(&file, &res).unwrap();
     }
     
     println!("Finsihed benchmarks and saved data into {}", &args.file);
