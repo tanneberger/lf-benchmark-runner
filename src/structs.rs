@@ -11,10 +11,10 @@ use serde::{Deserialize, Serialize};
 #[clap(about = "Runns specified captures and extracts times.", long_about = None)]
 pub struct Args {
     #[clap(short, long)]
-    pub binary: String,
+    pub binary: Option<String>,
 
     #[clap(short, long)]
-    pub target: String,
+    pub target: Option<String>,
 
     #[clap(short, long)]
     pub file: Option<String>,

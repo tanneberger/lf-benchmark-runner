@@ -143,8 +143,9 @@ fn draw_image(file: &String, data: &Vec<[String; 20]>) {
 
 fn collect_data(args: &Args, entry_count: u32) -> Vec<[String; 20]>{
     let mut results = Vec::new();
+    let binary = args.binary.as_ref().unwrap();
     // check if the given path is a directoty or a file
-    let md = metadata(&args.binary);
+    let md = metadata(&binary);
     match md {
         Err(_) => {
             println!("The given path to the binary doesn't exists !");
@@ -152,15 +153,15 @@ fn collect_data(args: &Args, entry_count: u32) -> Vec<[String; 20]>{
         }
         Ok(metadata) => {
             if metadata.is_dir() {
-                let paths = std::fs::read_dir(&args.binary).unwrap();
+                let paths = std::fs::read_dir(&binary).unwrap();
                 let mut i = entry_count;
                 for path in paths {
-                    let binary = path.unwrap().path().display().to_string();
-                    println!("Name: {}", &binary);
+                    let display_binary = path.unwrap().path().display().to_string();
+                    println!("Name: {}", &display_binary);
                     results.push(
                         perform_benchmark(
-                            &binary,
-                            &args.target,
+                            &display_binary,
+                            &args.target.as_ref().unwrap(),
                             &args.runtime_version,
                             args.number_of_runs,
                             i,
@@ -173,8 +174,8 @@ fn collect_data(args: &Args, entry_count: u32) -> Vec<[String; 20]>{
             } else {
                 results.push(
                     perform_benchmark(
-                        &args.binary,
-                        &args.target,
+                        &args.binary.as_ref().unwrap(),
+                        &args.target.as_ref().unwrap(),
                         &args.runtime_version,
                         args.number_of_runs,
                         entry_count,
@@ -209,7 +210,11 @@ fn main() {
         }
     }
 
-    let results = collect_data(&args, entry_count);
+    let results = if args.binary.is_some() && args.target.is_some() {
+        collect_data(&args, entry_count)
+    } else {
+        Vec::new()
+    };
 
     match args.file {
         Some(ref file_name) => {
