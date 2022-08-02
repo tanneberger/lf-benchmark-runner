@@ -118,7 +118,7 @@ fn draw_image(file: &String, data: &Vec<[String; 20]>) {
         .set_range(vec![0, width - left - right]);
 
     let y = ScaleLinear::new()
-        .set_domain(vec![0.0, 2000.0])
+        .set_domain(vec![0.0, 6000.0])
         .set_range(vec![height - top - bottom, 0]);
 
     let view = VerticalBarView::new()
